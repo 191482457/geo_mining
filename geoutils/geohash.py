@@ -6,21 +6,18 @@ import numpy as np;
 class geohash:
 
     base32 =[ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' ]
-    default_precision = 12;
-
     bits = [16, 8, 4, 2, 1]
 
+# 将经纬度编码成指定精度的geohash
     def encode(self, longitude, latitude, precision=12):
         lat_interval = [-90.0, 90.0];
         lng_interval = [ -180.0, 180.0];
         geohash="";
-        is_even = 1;
-        bit=0
-        ch = 0;
+        is_even = 1; bit=0; ch = 0;
         while len(geohash) < precision :
             mid = 0.0;
             if (is_even==1) :
-                mid = (lng_interval[0] + lng_interval[1]) / 2;
+                mid = np.mean(lng_interval)
                 if (longitude > mid):
                     ch|= self.bits[bit]
                     lng_interval[0] = mid;
@@ -28,7 +25,7 @@ class geohash:
                     lng_interval[1] = mid;
 
             else:
-                mid = (lat_interval[0]+lat_interval[1]) / 2;
+                mid = np.mean(lat_interval);
                 if (latitude > mid):
                      ch |= self.bits[bit];
                      lat_interval[0] = mid;
@@ -43,41 +40,28 @@ class geohash:
                 bit = 0; ch = 0;
         return geohash;
 
+#将geohash解码成对应的经纬度，并给出对应的经纬度精度
     def decode_exactly(self, geohash):
         lat_interval = [-90.0, 90.0];
         lng_interval = [ -180.0, 180.0];
-        lat_err = 90.0; lon_err = 180.0;
-        _decodemap={}
-        for i, char in enumerate(self.base32):
-            _decodemap[char]=i
+        decode_map={}
+        for i, char in enumerate(self.base32): decode_map[char]=i
 
         is_even = 1;
         bsz = len(self.bits);
-        latitude=0
-        longitude=0;
         for z in geohash:
-            cd = _decodemap[z];
+            cd = decode_map[z];
             for mask in self.bits:
                 if is_even==1:
-                    lon_err /= 2;
-                    if ((cd & mask) != 0) :
-                        lng_interval[0] = (lng_interval[0] + lng_interval[1]) / 2;
-                    else :
-                        lng_interval[1] = (lng_interval[0] + lng_interval[1]) / 2;
+                    lng_interval[0 if (cd & mask) != 0 else 1]=np.mean(lng_interval)
                 else:
-                    lat_err /= 2;
-                    if (cd & mask) != 0:
-                        lat_interval[0] = (lat_interval[0] + lat_interval[1]) / 2;
-                    else:
-                        lat_interval[1] = (lat_interval[0] + lat_interval[1]) / 2;
+                    lat_interval[0 if (cd & mask) != 0 else 1]=np.mean(lat_interval)
                 is_even = 1-is_even ;
 
+        return [np.mean(lng_interval),np.mean(lat_interval),
+                (lng_interval[1]-lng_interval[0])/2,(lat_interval[1]-lat_interval[0])/2];
 
-        latitude = (lat_interval[0] + lat_interval[1]) / 2;
-        longitude = (lng_interval[0] + lng_interval[1]) / 2;
-        return [ longitude,latitude, lon_err,lat_err,];
-
-
+#对结果进行规范化，去除当前精度无法准确指定的过多的小数位
     def decode(self, geohash):
         gap = self.decode_exactly(geohash);
         mgap=[np.round(-np.log10(item))-1 for item in gap[2:4]]
