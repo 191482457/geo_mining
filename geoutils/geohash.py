@@ -1,6 +1,7 @@
+#-*- coding:utf8 -*-
+#coding=utf-8
 __author__ = 'feitianyu'
-
-## 提供geohash编码与经纬度之前的转换功能
+#提供geohash编码与经纬度之前的转换功能
 import numpy as np;
 class geohash:
 
@@ -51,14 +52,12 @@ class geohash:
             _decodemap[char]=i
 
         is_even = 1;
-        sz = len(geohash);
         bsz = len(self.bits);
         latitude=0
         longitude=0;
-        for i in xrange(sz):
-            cd = _decodemap.get(geohash[i]);
-            for z in xrange(bsz):
-                mask = self.bits[z];
+        for z in geohash:
+            cd = _decodemap[z];
+            for mask in self.bits:
                 if is_even==1:
                     lon_err /= 2;
                     if ((cd & mask) != 0) :
@@ -78,21 +77,11 @@ class geohash:
         longitude = (lng_interval[0] + lng_interval[1]) / 2;
         return [ longitude,latitude, lon_err,lat_err,];
 
-    def getPrecision(self, x, precision):
-        base = pow(10, -precision);
-        diff = x % base;
-        return x - diff;
-
 
     def decode(self, geohash):
-        ge = self.decode_exactly(geohash);
-        mlat=np.round(-np.log10(ge[3]))-1
-        lat_precision = 0 if mlat<0 else mlat;
-        mlng=np.round(-np.log10(ge[2]))-1
-        lng_precision = 0 if mlng<0 else mlng;
-        lat = self.getPrecision(ge[1], lat_precision);
-        lon = self.getPrecision(ge[0], lng_precision);
-        return [lon,lat];
+        gap = self.decode_exactly(geohash);
+        mgap=[np.round(-np.log10(item))-1 for item in gap[2:4]]
+        return [np.round(gap[i], int(mgap[i]) if mgap[i]>0 else 0) for i in xrange(2)]
 
 
 
